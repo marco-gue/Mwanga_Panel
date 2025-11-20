@@ -47,3 +47,6 @@ po/*~
 
 # RStudio Connect folder
 rsconnect/
+
+/genome_blast/ATL_v3.asm.fa
+
