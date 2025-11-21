@@ -27,10 +27,9 @@ library(tibble)     # for tibble()
 # =============================================================================
 
 # Reference genome FASTA
-genome_fa <- "~/Mwanga_Panel/genome_blast/ATL_v3.asm.fa"
+genome_fa <- normalizePath("~/Mwanga_Panel/genome_blast/ATL_v3.asm.fa")
 
-# Name for the BLAST database (will produce NSP306_trifida_chr_v3.nin, etc.)
-db_name <- "~/Mwanga_Panel/genome_blast/ATL_v3.asm"
+db_name <- "genome_blast/ATL_v3.asm"
 
 # Depth threshold: minimum mean read depth per SNP to keep it
 depth.th <- 20
@@ -160,7 +159,19 @@ process_haplotype <- function(j) {
   
   # 1) BLAST the reference sequence
   y <- blast_my_potato(ref.seq)
-  y <- y[which.max(y$perc_identity),,drop = FALSE]
+  
+  # If BLAST returned no hits, skip this haplotype
+  if (is.null(y) || nrow(y) == 0) {
+    return(list(ref = NULL, alt = NULL))
+  }
+  
+  y <- y[which.max(y$perc_identity), , drop = FALSE]
+  
+  # Safety check in case BLAST returns malformed result
+  if (nrow(y) == 0 || is.na(y$s_start) || is.na(y$s_end)) {
+    return(list(ref = NULL, alt = NULL))
+  }
+  
   if(y$s_start > y$s_end){
     temp <- y$s_start
     y$s_start <- y$s_end
@@ -247,6 +258,6 @@ message("Done! 'V.ref' and 'V.alt' are ready with filtered SNP-depth summaries."
 # =============================================================================
 # Save results
 # =============================================================================
-saveRDS(V.ref, "~/repos/collaborations/MDP/Rdata_and_spreadsheets/V_ref.rds")
-saveRDS(V.alt, "~/repos/collaborations/MDP/Rdata_and_spreadsheets/V_alt.rds")
+saveRDS(V.ref, "rdata_and_spreadsheets/V_ref.rds")
+saveRDS(V.alt, "rdata_and_spreadsheets/V_alt.rds")
 # =============================================================================

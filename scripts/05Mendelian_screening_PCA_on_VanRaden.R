@@ -20,13 +20,15 @@ library(AGHmatrix)    # Genomic relationship matrices (VanRaden)
 # -----------------------
 
 # Load genotype dosage matrix (rows = markers, columns = samples)
-genomat <- readRDS("~/repos/collaborations/MDP/Rdata_and_spreadsheets/dosage_MDP_barcode_agg.rds")
+genomat <- readRDS("rdata_and_spreadsheets/dosage.rds")
 #u <- apply(genomat, 1, function(x) sum(!is.na(x))/length(x))
 #genomat <- genomat[u > 0.8,]
-#dim(genomat)
+dim(genomat)
 
 # Load sample metadata (e.g. family relationships)
-crosswalk_MDP <- read_csv("~/repos/collaborations/MDP/Rdata_and_spreadsheets/crosswalk_table_sorted_MDP_only.csv")
+crosswalk_MDP <- read_csv("rdata_and_spreadsheets/crosswalk_table_sorted_only.csv")
+crosswalk_MDP <- crosswalk_MDP |> 
+  
 
 # Create named vector linking Subject_Barcode to full-sib family
 fam.name <- setNames(crosswalk_MDP$full_sib, crosswalk_MDP$Subject_Barcode)
@@ -42,7 +44,7 @@ parents <- na.omit(unique(c(crosswalk_MDP$female, crosswalk_MDP$male)))
 
 # NOTE: This block is preserved but commented out
 #       Use if you need to re-enable Mendelian consistency filtering
-ploidy <- 6
+ploidy <- 4
 geno_classes <- expand_grid(mom = 0:ploidy, dad = 0:ploidy)
 valid_genos <- apply(geno_classes, 1, function(z) mappoly::segreg_poly(ploidy, z[1], z[2]) != 0)
 geno_labels <- rownames(valid_genos)
@@ -65,7 +67,10 @@ for (i in seq_along(individuals)) {
     }
   }
 }
-saveRDS(genomat,  "~/repos/collaborations/MDP/Rdata_and_spreadsheets/dosage_MDP_barcode_agg_with_Mendelian_filtering.rds")
+
+genomat[1:5,1:5]
+
+saveRDS(genomat,  "rdata_and_spreadsheets/dosage_barcode_agg_with_Mendelian_filtering.rds")
 
 # Read Mendelian-filtered dosage matrix
 genomat <- readRDS("~/repos/collaborations/MDP/Rdata_and_spreadsheets/dosage_MDP_barcode_agg_with_Mendelian_filtering.rds")
@@ -75,18 +80,27 @@ saveRDS(genomat,"~/repos/collaborations/MDP/Rdata_and_spreadsheets/dosage_MDP_un
 
 
 snp.id <- rownames(genomat)
-chp <- str_split_fixed(snp.id, "Chr|_", 4)[,2:3]
+chp <- str_split_fixed(snp.id, "chr|_", 5)[,2:5]
+chp[,3] <- sub("^0+", "", chp[,3])
 u <- data.frame(SNP = rownames(genomat), 
                 Chromosome = as.numeric(chp[,1]), 
-                Position = as.numeric(chp[,2]))
+                Position = as.numeric(chp[,3]))
 CMplot::CMplot(u, type = "p", plot.type = "d", file.output = FALSE)
 
 # -----------------------
 # 3. Compute Genomic Relationship Matrix (VanRaden Method)
 # -----------------------
 
-G.mat <- Gmatrix(t(genomat), method = "VanRaden", ploidy = 6)
-#saveRDS(G.mat, "~/repos/collaborations/MDP/Rdata_and_spreadsheets/G_mat_1328_ind_from_5686_mrks.rds")
+G.mat <- Gmatrix(t(genomat), method = "VanRaden", ploidy = 4)
+
+rownames(G.mat) <- setNames(crosswalk_MDP$Subject_Barcode,
+                            crosswalk_MDP$Sample_ID)[rownames(G.mat)]
+colnames(G.mat) <-setNames(crosswalk_MDP$Subject_Barcode,
+                           crosswalk_MDP$Sample_ID)[colnames(G.mat)]
+
+G.mat <- G.mat[!is.na(names(rownames(G.mat))), !is.na(names(colnames(G.mat)))]
+
+saveRDS(G.mat, "rdata_and_spreadsheets/G_mat.rds")
 
 # -----------------------
 # 4. Heatmap Plotting Function
@@ -98,7 +112,7 @@ plot_heatmap_by_parent <- function(G, crosswalk, parent_field,
   
   ids <- crosswalk$Subject_Barcode[order(crosswalk[[parent_field]])] %>%
     na.omit() %>%
-    grep("UGP", ., value = TRUE)
+    grep("CIP", ., value = TRUE)
   
   Gsub <- as.matrix(G[ids, ids])
   
@@ -130,6 +144,26 @@ plot_heatmap_by_parent <- function(G, crosswalk, parent_field,
 
 # -----------------------
 # 5. Generate Heatmaps
+# -----------------------
+
+plot_heatmap_by_parent(
+  G            = G.mat,
+  crosswalk    = crosswalk_MDP,
+  parent_field = "female",
+  palette_func = viridis::rocket,
+  palette_args = list(n = 20, direction = -1)
+)
+
+plot_heatmap_by_parent(
+  G            = G.mat,
+  crosswalk    = crosswalk_MDP,
+  parent_field = "male",
+  palette_func = viridis::mako,
+  palette_args = list(n = 20, direction = -1)
+)
+
+# -----------------------
+# 5. Generate Heatmaps by Families
 # -----------------------
 
 plot_heatmap_by_parent(

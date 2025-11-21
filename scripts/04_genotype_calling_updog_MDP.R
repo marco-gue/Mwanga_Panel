@@ -25,7 +25,7 @@ library(readr)        # fast CSV import
 library(tidyverse)    # dplyr, tibble, ggplot2, etc.
 
 # Detect number of cores to use (leave one free)
-ncore <- parallel::detectCores() - 1
+ncore <- parallel::detectCores() - 4
 
 # Plan future to use multicore (or multisession on macOS)
 plan(multisession, workers = ncore)
@@ -35,20 +35,20 @@ plan(multisession, workers = ncore)
 # -----------------------
 # Crosswalk table mapping MDP samples
 crosswalk_MDP <- read_csv(
-  "~/repos/collaborations/MDP/Rdata_and_spreadsheets/crosswalk_table_sorted_MDP_only.csv",
+  "rdata_and_spreadsheets/crosswalk_table_sorted_only.csv",
   col_types = cols(Sample_ID = col_character())
 )
 
 # Read in allele‐count matrices for reference and alternate alleles
-V_ref <- readRDS("~/repos/collaborations/MDP/Rdata_and_spreadsheets/V_ref.rds")
-V_alt <- readRDS("~/repos/collaborations/MDP/Rdata_and_spreadsheets/V_alt.rds")
+V_ref <- readRDS("rdata_and_spreadsheets/V_ref.rds")
+V_alt <- readRDS("rdata_and_spreadsheets/V_alt.rds")
 
 # -----------------------
 # 3. Filter to SNPs on chromosomes
 # -----------------------
 # Identify rows where snp.id contains "Chr"
-idx_ref <- grepl("Chr", V_ref$snp.id)
-idx_alt <- grepl("Chr", V_alt$snp.id)
+idx_ref <- grepl("chr", V_ref$snp.id)
+idx_alt <- grepl("chr", V_alt$snp.id)
 
 # Check that filtering indices match
 stopifnot(all(idx_ref == idx_alt))
@@ -70,6 +70,16 @@ stopifnot(
 # -----------------------
 # 4. Subset to MDP samples
 # -----------------------
+
+fix_names <- function(x) {
+  x <- sub("^X", "", x)       # elimina X al inicio
+  x <- gsub("\\.", "-", x)    # reemplaza todos los puntos por guiones
+  return(x)
+}
+
+colnames(V_ref) <- fix_names(colnames(V_ref))
+colnames(V_alt) <- fix_names(colnames(V_alt))
+
 # Reorder and subset columns by Sample_ID in crosswalk
 samples <- crosswalk_MDP$Sample_ID
 V_ref_MDP <- V_ref[, samples]
@@ -82,17 +92,28 @@ V_tot_MDP <- V_ref_MDP + V_alt_MDP
 # 5. Coverage QC plot
 # -----------------------
 # Mean total count per SNP
-mean_counts <- rowMeans(V_tot_MDP)
+q <- apply(V_tot_MDP, 1, mean)
+hist(q, breaks = 300)
+
+# Filtering alleles with a mean depth ranging from 10 to 1000:
+id <- q > 10 & q < 1000
+length(id)
+q <- q[id]
 
 # Plot histogram of coverage
-hist(mean_counts,
-     breaks = 200,
+hist(q,
+     breaks = 300,
      main   = "SNP Coverage Distribution (Mean Total Reads)",
      xlab   = "Mean Total Read Count per SNP")
+abline(v = median(q), col = "red", lwd = 2)
+abline(v = mean(q),  col = "blue", lwd = 2)
 
-# Add vertical lines at mean and median
-abline(v = median(mean_counts), col = "red", lwd = 2)
-abline(v = mean(mean_counts),  col = "blue", lwd = 2)
+sizemat <- as.matrix(V_tot_MDP[id, ]); dim(sizemat)
+refmat <- as.matrix(V_ref_MDP[id, ]); dim(refmat)
+altmat <- as.matrix(V_alt_MDP[id, ]); dim(altmat)
+save(sizemat, refmat, file = "rdata_and_spreadsheets/refsizemat.rda")
+  
+
 
 # -----------------------
 # 6. Prepare matrices for updog
@@ -107,7 +128,7 @@ sizemat <- as.matrix(V_tot_MDP)
 mout <- multidog(
   refmat  = refmat,
   sizemat = sizemat,
-  ploidy  = 6,
+  ploidy  = 4,
   model   = "norm",
   nc      = ncore
 )
@@ -116,12 +137,12 @@ mout <- multidog(
 # 8. Visualize results
 # -----------------------
 # Plot the first 40 SNPs’ genotype fits
-plot(mout, indices = 1:10)
+plot(mout, indices = 55:60)
 
-saveRDS(mout, file = "~/repos/collaborations/MDP/Rdata_and_spreadsheets/dosage_calling_MDP.rds")
+saveRDS(mout, file = "rdata_and_spreadsheets/dosage_calling.rds")
 genomat <- format_multidog(mout, varname = "geno")
-genomat[1:10, 1:5]
-saveRDS(genomat, file = "~/repos/collaborations/MDP/Rdata_and_spreadsheets/dosage_MDP.rds")
+genomat[1:5, 1:5]
+saveRDS(genomat, file = "rdata_and_spreadsheets/dosage.rds")
 
 # =============================================================================
 # End of script
