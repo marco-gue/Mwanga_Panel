@@ -26,6 +26,14 @@ library(updog)
 library(CMplot)
 ```
 
+# Information
+
+Genotyping of the study population was performed in two orders:
+
+* Report-DP24-8964 (no file MADC)
+
+* Report-DP24-8965 (file MADC)
+
 # SNP Mismatch Visualization with Reference and Nucleotide Labels
 
 ```{r}
@@ -206,7 +214,7 @@ write.csv(
 )
 ```
 
-# frrf
+# Distribution 
 
 ```{r}
 crosswalk <- read.csv(file = "rdata_and_spreadsheets/crosswalk_table_sorted_only.csv")
@@ -311,7 +319,9 @@ ggplot(plot_data, aes(x = male_lab, y = female_lab)) +
   labs(x = NULL, y = NULL)
 ```
 
-# Blast
+# Alignment
+
+The [Atlantic](https://spuddb.uga.edu/ATL_v3_download.shtml) reference genome was used for alignment, as recommended by Prof. Gui.
 
 ```{r, eval=FALSE}
 # =============================================================================
@@ -545,7 +555,7 @@ saveRDS(V.alt, "rdata_and_spreadsheets/V_alt.rds")
 # =============================================================================
 ```
 
-# DS
+# Dosage
 
 ```{r}
 # -----------------------
@@ -748,17 +758,21 @@ u <- data.frame(SNP = rownames(genomat),
                 Position = as.numeric(chp[,3]))
 ```
 
-**jk**
-
-* 4460 markers
 
 ```{r, eval=FALSE}
 CMplot(u, type = "p", plot.type = "d", bin.size = 1e6, chr.den.col = c("darkgreen", "yellow", "red"), file = "png", dpi = 300, main = "", file.output = TRUE, verbose = TRUE, width = 9, height = 6, file.name = "dartag")
 ```
 
+**Now**
+
+* 4460 markers
+
+
 ![](plots/Marker_Density.dartag.png)
 
-**hk**
+**Using only the markers in the DarTag file**
+
+* 1897 markers
 
 ![](plots/Marker_Density_only2.dartag.png)
 
